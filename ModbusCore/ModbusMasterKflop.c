@@ -9,7 +9,7 @@ Description:
 	Virtual bits 56-61 are sent to the outputs of the PLC.
 	It is easy to configure this code to use other virtual bits on the kflop or other memory areas of the PLC.
 	At 38400 baud (fastest allowed on the PLC) the inputs and outputs are read/written at ~40Hz. If you only need just
-		input or just output, ~80hz.
+		input or just output, ~80hz
 	Note that the KFlop does not currently support parity. The PLC is connected through its port 2 which is configured
 		to use no parity, 38400 baud, 8 bit data, 1 stop bit.
 	
@@ -107,25 +107,43 @@ ModbusMaster_Cmds *ModbusMaster_SentPtr; // pointer to current command. used to 
 ModbusMaster_Cmds ModbusMaster_ConnectList[] =
 {
 	// string is "dev,cmd,adrhi,adrlo,lenhi,lenlo" bytes of modbus command. bytelen, data, and checksum are added.
-	{"\x01\x03\x00\x20\x00\x10", 6, 2},	// Collect PLC firmware info block MBRegisters[10] for 16 registers
+	// JASON - Skip init commands
+	//{"\x01\x03\x00\x20\x00\x10", 6, 2},	// Collect PLC firmware info block MBRegisters[10] for 16 register
 	{0,0,0}	// end flag
 };
 
 ModbusMaster_Cmds ModbusMaster_MonitorList[] =
 {
 	// string is "dev,cmd,adrhi,adrlo,lenhi,lenlo" bytes of modbus command. bytelen, data, and checksum are added as necessary.
-	{"\x01\x03\x00\x20\x00\x01", 6, 0},	// Read inputs to MBRegisters[0]
-	{"\x01\x10\xE2\x00\x00\x01", 6, 1},	// Write outputs from MBRegisters[1]
+	//{"\x01\x10\x02\x80\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
+	//{"\x01\x10\x00\x01\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
+	{"\x01\x10\x00\x01\x00\x01", 6, 0}, //\x02\x00\x01\x66\x41"
+	//{"\x01\x10\xE2\x00\x00\x01", 6, 1},	// Write outputs from MBRegisters[1]
 	{0,0,0}	// end flag
 };
+
+void ReceiveChar()
+{
+    // wait for data in buffer
+    while ((FPGA(RS232_STATUS) & 1)==0);
+    return FPGA(RS232_DATA);
+}
+
+void SendChar(char c)
+{
+    while (FPGA(RS232_STATUS) & RS232_TRANSMIT_FULL) ;
+    FPGA(RS232_DATA) = c;
+}
 
 void ModbusMaster_Init()
 {
 	printf("\nModbus Master Init\n");
 	SetBitDirection(45,1);				// Enable IO45
-	EnableRS232Cmds(RS232_BAUD_9600);		// Set baud rate
-	FPGA(KAN_TRIG_REG)=2;				// Enable UART
-	DoRS232Cmds = FALSE;  				// turn off processing RS232 input as commands
+	EnableRS232Cmds(RS232_BAUD_9600);		// Set baud
+    DoRS232Cmds = FALSE;  
+    //FPGA(RS232_BAUD_REG) = RS232_BAUD_9600;	
+	//FPGA(KAN_TRIG_REG) = 2;				// Enable UART
+	//JASON - DoRS232Cmds = FALSE;  				// turn off processing RS232 input as commands
 	ModbusMaster_LastInTime=Time_sec();
 	ModbusMaster_EndOfPacketWait=3.5*10.0/9600; 	// wait 3.5 characters after a packet Modified
 	ModbusMaster_packetSize=0;
@@ -136,6 +154,8 @@ void ModbusMaster_Init()
 	int c;
 	for (c=0;c<N_MB_REGISTERS;c++)
 		MBRegisters[c]=0;
+		
+	MBRegisters[0] = 1; // Init spindle start command
 		
 	// make the register static arrays available to the other threads
 	persist.UserData[PERSIST_MBREG_BLOCK_ADR]=(int)MBRegisters;
@@ -156,17 +176,18 @@ void ModbusMaster_RegUnload()
 	// Move 8 PLC inputs to virtual bits via MBRegisters[0]
 	// Note use SetStateBit which is Atomic and Thread Safe
 	
-	int i;
-	
-	for (i=0; i<8; i++)
-		SetStateBit(48+i,(MBRegisters[0]>>i)&1);  // 8 input bits
+	// JASON - Skip moving data for now
+	//int i;
+	//for (i=0; i<8; i++)
+	//	SetStateBit(48+i,(MBRegisters[0]>>i)&1);  // 8 input bits
 }
 
 // marshal and move values to be sent to PLC/Slave into MBRegisters
 void ModbusMaster_RegLoad()
 {
 	// Move 6 virtual bits to PLC outputs via MBRegisters[1]
-	MBRegisters[1] = (VirtualBits>>8)&0x3F;	// the six bits after the 8 input bits
+	// JASON - Skip moving data for now.
+	//MBRegisters[1] = (VirtualBits>>8)&0x3F;	// the six bits after the 8 input bits
 }
 
 static unsigned char auchCRCHi[] = {
@@ -312,9 +333,11 @@ void ModbusMaster_Send(int verbose)
 	*chp++=(csum>>8)&0xFF;
 
 	if (verbose) printf("Tx:"); //debug
+
 	for (xp=ModbusMaster_packetBuild;xp<chp;xp++)
 	{
-		RS232_PutChar(*xp);
+		//RS232_PutChar(*xp);
+		SendChar(*xp);
 		if (verbose) printf("%02x;",*xp); //debug
 	}
 	if (verbose) printf("\n"); //debug
@@ -337,7 +360,7 @@ MBErrors Process_Data(unsigned char *Buffer, unsigned char Count)
 		return INTERROR_CHECKSUM;
 	}
 
-	//d printf("Packet %d\n",Function);    //debug
+	printf("Packet %d\n",Buffer[0]);    //debug
 
 	switch(Buffer[1])
 	{
@@ -366,12 +389,18 @@ void ModbusMaster_Monitor()
 {
 	char c;
 
-	if (pRS232RecIn != pRS232RecOut)
+    // JASON - I probably broke this, this was probably supposed to wait for the entire response to be available.
+    if(pRS232RecIn != pRS232RecOut) // data in buffer
+	//if ((FPGA(RS232_STATUS) & RS232_DATA_READY) != 0)
 	{
 		ModbusMaster_LastInTime=Time_sec();
 		while (pRS232RecIn != pRS232RecOut) // data in buffer
+		//while ((FPGA(RS232_STATUS) & RS232_DATA_READY) != 0)
 		{
+			        
 			c=RS232_GetChar();
+			//c=ReceiveChar();
+			//printf("Rx=%02X", (unsigned int)c);
 			if (ModbusMaster_packetSize<255)
 				ModbusMaster_packetBuild[ModbusMaster_packetSize++]=c;
 			//d printf("%02x,",c&0xFF); //debug
@@ -437,6 +466,17 @@ void ModbusMaster_Loop()
 
 main()
 {
+	//char transmitCmd[] = "\x01\x10\x00\x01\x00\x01\x02\x00\x01\xa7\x81"; // M3
+	//int commands = 11;
+
+
+    //printf("Start\n");
+    //for (i = 0; i < commands; ++i)
+    //{
+    //	printf("Send %02X\n", (unsigned int)transmitCmd[i] & 0xFF);
+    //	SendChar(transmitCmd[i]);
+    //}
+
 	ModbusMaster_Init();
 	int reportsecs=10;
 	double starttime;;
