@@ -377,9 +377,12 @@ void ModbusMaster_Monitor()
 	{
 		ModbusMaster_LastInTime=Time_sec();
 		while (pRS232RecIn != pRS232RecOut) // data in buffer
+		//while ((FPGA(RS232_STATUS) & RS232_DATA_READY) != 0)
 		{
 			        
 			c=RS232_GetChar();
+			//c=ReceiveChar();
+			//printf("Rx=%02X", (unsigned int)c);
 			if (ModbusMaster_packetSize<255)
 				ModbusMaster_packetBuild[ModbusMaster_packetSize++]=c;
 			//d printf("%02x,",c&0xFF); //debug
@@ -445,6 +448,17 @@ void ModbusMaster_Loop()
 
 main()
 {
+	//char transmitCmd[] = "\x01\x10\x00\x01\x00\x01\x02\x00\x01\xa7\x81"; // M3
+	//int commands = 11;
+
+
+    //printf("Start\n");
+    //for (i = 0; i < commands; ++i)
+    //{
+    //	printf("Send %02X\n", (unsigned int)transmitCmd[i] & 0xFF);
+    //	SendChar(transmitCmd[i]);
+    //}
+
 	ModbusMaster_Init();
 	int reportsecs=10;
 	double starttime;;
