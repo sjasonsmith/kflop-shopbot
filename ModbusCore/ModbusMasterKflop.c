@@ -46,7 +46,11 @@ Pseudocode for main loop:
 
 #include "KMotionDef.h"
 
-#include "ModBusMaster.h"
+#define N_MB_REGISTERS 	(0x40)
+
+#define PERSIST_MBREG_BLOCK_ADR		82  // persist.UserData array index to pointer-to-ModbusRWRegister
+
+#define MBReg ((unsigned short *)persist.UserData[PERSIST_MBREG_BLOCK_ADR])
 
 unsigned short MBRegisters[N_MB_REGISTERS];
 
