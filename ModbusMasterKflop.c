@@ -45,6 +45,7 @@ Pseudocode for main loop:
 */
 
 #include "KMotionDef.h"
+#include "SpindleControl.h"
 
 #define N_MB_REGISTERS 	(0x40)
 
@@ -121,7 +122,7 @@ ModbusMaster_Cmds ModbusMaster_MonitorList[] =
 	// string is "dev,cmd,adrhi,adrlo,lenhi,lenlo" bytes of modbus command. bytelen, data, and checksum are added as necessary.
 	//{"\x01\x10\x02\x80\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
 	//{"\x01\x10\x00\x01\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
-	{"\x01\x10\x00\x01\x00\x01", 6, 0}, //\x02\x00\x01\x66\x41"
+	{"\x01\x10\x00\x01\x00\x01", 6, 0}, //\x02\x00\x01\x66\x41" // Start Spindle
 	//{"\x01\x10\xE2\x00\x00\x01", 6, 1},	// Write outputs from MBRegisters[1]
 	{0,0,0}	// end flag
 };
@@ -449,7 +450,7 @@ void ModbusMaster_Loop()
 
 main()
 {
-	ModbusMaster_Init();
+	//ModbusMaster_Init();
 	int reportsecs=10;
 	double starttime;;
 	double MonitorStartTime=0;	// start of most recent monitor cycle
@@ -463,6 +464,7 @@ main()
 	
 	while(1)
 	{
+		#if 0
 		ModbusMaster_Loop();
 		if (starttime+reportsecs<Time_sec())
 		{
@@ -475,5 +477,12 @@ main()
 			starttime=Time_sec();
 			TallyCommands=ModbusMaster_TallyCommands;
 		}
+		#endif
+
+		// Echo desired spindle speed
+		persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
+		printf("Echoed %f\n", *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED]);
+		Delay_sec(1.0);
+		
 	}
 }
