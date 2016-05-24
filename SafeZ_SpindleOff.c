@@ -1,16 +1,16 @@
 #include "KMotionDef.h"
 
+#define ZAxisChan	2
 #define SPINDLE_BIT 16
-#define ZAXIS 2
-#define SAFE_Z_HEIGHT 2979.3805
 
 main()
 {
-	if (ReadBit(SPINDLE_BIT)) // only move up if Spindle was on
-	{
-		ClearBit(SPINDLE_BIT);   //spindle off
-		Move(ZAXIS,SAFE_Z_HEIGHT);
-		while (!CheckDone(ZAXIS));
+		// Spindle Off
+		ClearBit(SPINDLE_BIT);
+		
+		MoveAtVel(ZAxisChan, 0, 1000);
+		while (!CheckDone(ZAxisChan));
+
 		printf("SafeZ\n");
-	}
 }
+
