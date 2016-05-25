@@ -451,7 +451,7 @@ void ModbusMaster_Loop()
 main()
 {
 	//ModbusMaster_Init();
-	int reportsecs=10;
+	int reportsecs=5;
 	double starttime;;
 	double MonitorStartTime=0;	// start of most recent monitor cycle
 	double MonitorCycleTime=0;	// seconds to call all commands in Monitor list
@@ -466,10 +466,11 @@ main()
 	{
 		#if 0
 		ModbusMaster_Loop();
+		#endif
 		if (starttime+reportsecs<Time_sec())
 		{
 			printf("\nSeconds: %d\n",reportsecs);
-			printf("ModbusMaster_MonitorCycleTime=%f (%f/s)\n",ModbusMaster_MonitorCycleTime,1.0/ModbusMaster_MonitorCycleTime);
+			//printf("ModbusMaster_MonitorCycleTime=%f (%f/s)\n",ModbusMaster_MonitorCycleTime,1.0/ModbusMaster_MonitorCycleTime);
 			printf("ModbusMaster_TallyCommands/s=%0.lf\n",(ModbusMaster_TallyCommands-TallyCommands)/(double)reportsecs);
 			printf("ModbusMaster_TallyConnections=%d\n",ModbusMaster_TallyConnections);
 			printf("ModbusMaster_TallyRetries=%d\n",ModbusMaster_TallyRetries);
@@ -477,7 +478,6 @@ main()
 			starttime=Time_sec();
 			TallyCommands=ModbusMaster_TallyCommands;
 		}
-		#endif
 
 		// Echo desired spindle speed
 		persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
