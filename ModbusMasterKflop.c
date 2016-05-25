@@ -446,7 +446,9 @@ void ModbusMaster_Loop()
 		ModbusMaster_Monitor();
 }
 
-
+#define kVirtualBit_Base 48
+#define kVirtualBit_SpindleEnabled (kVirtualBit_Base + 0)
+#define kVirtualBit_SpindleClockwise (kVirtualBit_Base + 1)
 
 main()
 {
@@ -458,7 +460,15 @@ main()
 	int TallyConnections=0;	// Number of times Connecion list has been sent
 	int TallyCommands=0;	// Commands since connection
 	int TallyRetries=0;	// Retries since connection
-	
+
+	// Configure virtual bits we are using for spindle control
+	SetBitDirection(kVirtualBit_SpindleEnabled, 0);
+	SetBitDirection(kVirtualBit_SpindleClockwise, 0);
+
+	BOOL spindleOn = TRUE;
+	BOOL spindleCW = TRUE;
+	float spindleSpeed = 0.0;
+
 	starttime=Time_sec();
 	TallyCommands=ModbusMaster_TallyCommands;
 	
@@ -480,9 +490,34 @@ main()
 		}
 
 		// Echo desired spindle speed
-		persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
-		printf("Echoed %f\n", *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED]);
-		Delay_sec(1.0);
-		
+		if (persist.UserData[SPINDLECONTROL_SPEED_DESIRED] != spindleSpeed)
+		{
+			// TODO: Write spindle speed command, and wait for response.
+			persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
+			printf("Echoed %f\n", *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED]);
+		}
+
+		// Check virtual bit that instructs us to turn on the spindle
+		if (spindleOn != ReadBit(kVirtualBit_SpindleEnabled))
+		{
+			if (ReadBit(kVirtualBit_SpindleEnabled))
+			{
+				spindleOn = TRUE;
+				spindleCW = ReadBit(kVirtualBit_SpindleClockwise);
+				printf("SPINDLE ENABLED %s\n", spindleCW ? "CW" : "CCW");
+			}
+			else
+			{
+				spindleOn = FALSE;
+				printf("SPINDLE DISABLED\n");
+			}
+			// Turn spindle on or off
+		}
+		else if (spindleOn && spindleCW != ReadBit(kVirtualBit_SpindleClockwise))
+		{
+			printf("ERROR: Spindle direction reversed while enabled. Command Ignored\n");
+		}
+
+		Delay_sec(0.1);
 	}
 }
