@@ -107,22 +107,18 @@ typedef struct ModbusMaster_sCmds
 	int reg; // reg# is the start index into the MBRegisters array for the command
 } ModbusMaster_Cmds;
 
-ModbusMaster_Cmds *ModbusMaster_SentPtr; // pointer to current command. used to send, resend, interpret response.
+ModbusMaster_Cmds *ModbusMaster_SentPtr = NULL; // pointer to current command. used to send, resend, interpret response.
 
-ModbusMaster_Cmds ModbusMaster_ConnectList[] =
-{
-	// string is "dev,cmd,adrhi,adrlo,lenhi,lenlo" bytes of modbus command. bytelen, data, and checksum are added.
-	// JASON - Skip init commands
-	//{"\x01\x03\x00\x20\x00\x10", 6, 2},	// Collect PLC firmware info block MBRegisters[10] for 16 register
-	{0,0,0}	// end flag
-};
+#define MBRegs_SpindleState 1
+// TODO: This wants to read value from a register, I guess that is ok.
+ModbusMaster_Cmds kCommand_SetSpindleState = {"\x01\x10\x00\x01\x00\x01", 6, MBRegs_SpindleState}; //\x02\x00\x01\x66\x41" // Set Spindle state to MBRegisters[0]
+
+ModbusMaster_Cmds kCommand_SetSpeed = {"\x01\x10\x02\x80\x00\x01", 6, 0}; // Set speed from MBRegisters[1]
 
 ModbusMaster_Cmds ModbusMaster_MonitorList[] =
 {
 	// string is "dev,cmd,adrhi,adrlo,lenhi,lenlo" bytes of modbus command. bytelen, data, and checksum are added as necessary.
-	//{"\x01\x10\x02\x80\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
 	//{"\x01\x10\x00\x01\x00\x01", 6, 0},	// Read speed to MBRegisters[0]
-	{"\x01\x10\x00\x01\x00\x01", 6, 0}, //\x02\x00\x01\x66\x41" // Start Spindle
 	//{"\x01\x10\xE2\x00\x00\x01", 6, 1},	// Write outputs from MBRegisters[1]
 	{0,0,0}	// end flag
 };
@@ -139,16 +135,14 @@ void ModbusMaster_Init()
 	ModbusMaster_packetSize=0;
 	
 	ModbusMaster_Idle=0;
-	ModbusMaster_SentPtr=&ModbusMaster_ConnectList[0];
+	ModbusMaster_SentPtr=NULL;
 
 	int c;
 	for (c=0;c<N_MB_REGISTERS;c++)
 		MBRegisters[c]=0;
 		
-	MBRegisters[0] = 1; // Init spindle start command
-		
 	// make the register static arrays available to the other threads
-	persist.UserData[PERSIST_MBREG_BLOCK_ADR]=(int)MBRegisters;
+	//persist.UserData[PERSIST_MBREG_BLOCK_ADR]=(int)MBRegisters;
 	//d printf("persist.UserData[%d]<=%08X\n",PERSIST_RWREG_BLOCK_ADR,MBRWRegisters); //debug
 }
 
@@ -237,66 +231,16 @@ unsigned short CRC16(unsigned char *puchMsg,unsigned short usDataLen)
 	return (uchCRCHi<<8|uchCRCLo);
 }
 
-void ModbusMaster_NextCmd(MBErrors ecode)
+void ModbusMaster_Send(ModbusMaster_Cmds * commandPtr, int verbose)
 {
-	if (ecode) printf("ModbusMaster_NextCmd(%d)\n",ecode); //debug
-	ModbusMaster_Idle=0; // ready to send a new command
-	if (INTERROR_TIMEOUT==ecode)
-	{
-		if (ModbusMaster_List)
-			ModbusMaster_Connected=0;
-	}
-	if (ModbusMaster_List)
-	{
-		ModbusMaster_MonitorIndex++;
-		if (!ModbusMaster_MonitorList[ModbusMaster_MonitorIndex].start)
-		{
-			ModbusMaster_MonitorIndex=0;
-			ModbusMaster_MonitorCycleTime=Time_sec()-ModbusMaster_MonitorStartTime;
-			ModbusMaster_MonitorStartTime=Time_sec();
-		}
-	}
-	else
-	{
-		ModbusMaster_ConnectIndex++;
-		if (!ModbusMaster_ConnectList[ModbusMaster_ConnectIndex].start)
-			ModbusMaster_List=1;	// continue monitor list, do not restart here
-	}
-	if (INTERROR_TIMEOUT!=ecode&&0==ModbusMaster_Connected)
-	{
-		ModbusMaster_Connected=1;
-		ModbusMaster_List=0;
-		ModbusMaster_ConnectIndex=0;
-
-		ModbusMaster_TallyConnections++;
-		ModbusMaster_TallyCommands=0;
-		ModbusMaster_TallyRetries=0;
-	}
-
-	if (!ModbusMaster_List)
-		ModbusMaster_SentPtr=&ModbusMaster_ConnectList[ModbusMaster_ConnectIndex];
-	else
-		ModbusMaster_SentPtr=&ModbusMaster_MonitorList[ModbusMaster_MonitorIndex];
-}
-
-void ModbusMaster_Send(int verbose)
-{
-	// send the command currently pointed to by ModbusMaster_SentPtr
 	//	printf("ModbusMaster_Send(%d)\n",verbose);
 	
 	char *chp;
 	int x;
 	unsigned char *xp;
 
-	if (!ModbusMaster_List)
-		printf("List:%d ConnectIndex:%d MonitorIndex:%d\n",
-				ModbusMaster_List,ModbusMaster_ConnectIndex,ModbusMaster_MonitorIndex);
-
-	if (!ModbusMaster_SentPtr->start)
-	{
-		printf("ModbusMaster_Send: Tried to execute at end list\n");
-		ModbusMaster_NextCmd(MBERROR_NONE);
-	}
+	// ModbusMaster_SentPtr is used for retry and response, so populate it now.
+	ModbusMaster_SentPtr = commandPtr;
 		
 	strncpy(ModbusMaster_packetBuild,ModbusMaster_SentPtr->start,ModbusMaster_SentPtr->len);
 	chp=&ModbusMaster_packetBuild[ModbusMaster_SentPtr->len];
@@ -399,7 +343,6 @@ void ModbusMaster_Monitor()
 			if (!rtrn)
 			{
 				ModbusMaster_TallyCommands++;
-				ModbusMaster_NextCmd(rtrn);
 				return;
 			}
 			printf("Error=%d, %f\n",rtrn,ModbusMaster_LastInTime+ModbusMaster_EndOfPacketWait-Time_sec());	//debug
@@ -414,17 +357,17 @@ void ModbusMaster_Monitor()
 			{
 				//d printf("Failed Monitor message %d\n",ModbusMaster_MonitorIndex); //debug
 				//ModbusMaster_ConnectIndex=0;	// reset connection
-				ModbusMaster_NextCmd(INTERROR_TIMEOUT);
+				ModbusMaster_Retry = 0;
 			}
 			else
 			{
-				ModbusMaster_Send(1);
+				ModbusMaster_Send(ModbusMaster_SentPtr, 1);
 			}
 		}
 	}
 }
 
-
+#if 0
 void ModbusMaster_Loop()
 {
 	//d printf("ModbusMaster_Loop: ModbusMaster_Idle=%d\n",ModbusMaster_Idle); //debug
@@ -445,6 +388,7 @@ void ModbusMaster_Loop()
 	else
 		ModbusMaster_Monitor();
 }
+#endif
 
 #define kVirtualBit_Base 48
 #define kVirtualBit_SpindleEnabled (kVirtualBit_Base + 0)
@@ -452,7 +396,7 @@ void ModbusMaster_Loop()
 
 main()
 {
-	//ModbusMaster_Init();
+	ModbusMaster_Init();
 	int reportsecs=5;
 	double starttime;;
 	double MonitorStartTime=0;	// start of most recent monitor cycle
@@ -493,25 +437,31 @@ main()
 		if (persist.UserData[SPINDLECONTROL_SPEED_DESIRED] != spindleSpeed)
 		{
 			// TODO: Write spindle speed command, and wait for response.
-			persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
+			spindleSpeed = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
+			persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = spindleSpeed;
 			printf("Echoed %f\n", *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED]);
 		}
 
 		// Check virtual bit that instructs us to turn on the spindle
 		if (spindleOn != ReadBit(kVirtualBit_SpindleEnabled))
 		{
+			// Turn spindle on or off
 			if (ReadBit(kVirtualBit_SpindleEnabled))
 			{
 				spindleOn = TRUE;
 				spindleCW = ReadBit(kVirtualBit_SpindleClockwise);
 				printf("SPINDLE ENABLED %s\n", spindleCW ? "CW" : "CCW");
+				MBRegisters[MBRegs_SpindleState] = spindleCW ? 1 : 2;
 			}
 			else
 			{
 				spindleOn = FALSE;
 				printf("SPINDLE DISABLED\n");
+				MBRegisters[MBRegs_SpindleState] = 0;
 			}
-			// Turn spindle on or off
+			// TODO: set direction
+			ModbusMaster_Send(&kCommand_SetSpindleState, 1);
+			ModbusMaster_Monitor();
 		}
 		else if (spindleOn && spindleCW != ReadBit(kVirtualBit_SpindleClockwise))
 		{
