@@ -110,10 +110,12 @@ typedef struct ModbusMaster_sCmds
 ModbusMaster_Cmds *ModbusMaster_SentPtr = NULL; // pointer to current command. used to send, resend, interpret response.
 
 #define MBRegs_SpindleState 1
+#define MBRegs_SpindleSpeed 2
+
 // TODO: This wants to read value from a register, I guess that is ok.
 ModbusMaster_Cmds kCommand_SetSpindleState = {"\x01\x10\x00\x01\x00\x01", 6, MBRegs_SpindleState}; //\x02\x00\x01\x66\x41" // Set Spindle state to MBRegisters[0]
 
-ModbusMaster_Cmds kCommand_SetSpeed = {"\x01\x10\x02\x80\x00\x01", 6, 0}; // Set speed from MBRegisters[1]
+ModbusMaster_Cmds kCommand_SetSpindleSpeed = {"\x01\x10\x02\x80\x00\x01", 6, MBRegs_SpindleSpeed}; // Set speed from MBRegisters[1]
 
 ModbusMaster_Cmds ModbusMaster_MonitorList[] =
 {
@@ -434,12 +436,16 @@ main()
 		}
 
 		// Echo desired spindle speed
-		if (persist.UserData[SPINDLECONTROL_SPEED_DESIRED] != spindleSpeed)
+		if (*(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED] != spindleSpeed)
 		{
 			// TODO: Write spindle speed command, and wait for response.
-			spindleSpeed = persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
-			persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = spindleSpeed;
-			printf("Echoed %f\n", *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED]);
+			spindleSpeed = *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
+			*(float*)&persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = spindleSpeed;
+			printf("Echoed %f\n", spindleSpeed);
+
+			MBRegisters[MBRegs_SpindleSpeed] = spindleSpeed;
+			ModbusMaster_Send(&kCommand_SetSpindleSpeed, 1);
+			ModbusMaster_Monitor();
 		}
 
 		// Check virtual bit that instructs us to turn on the spindle
