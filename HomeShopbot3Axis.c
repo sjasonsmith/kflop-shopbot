@@ -27,6 +27,38 @@ main()
 	ClearStopImmediately();
 	ResumeCoordinatedMotion();
 
+	if (Flags==1)
+	{
+		printf("Z-Axis homing routine...");
+
+		// Remove soft limits
+		DisableAxis(ZAxisChan);
+		ch2->SoftLimitPos=1e+009;
+		ch2->SoftLimitNeg=-1e+009;
+		EnableAxis(ZAxisChan);
+
+		// Jog axis slowly positive until home switch detect
+		Jog(ZAxisChan,1000);
+		while (!ReadBit(ZAxisHomeBit));
+		Jog(ZAxisChan,0);
+		while (!CheckDone(ZAxisChan));
+		
+		// Move back 0.25" off sensor
+		MoveRelAtVel(ZAxisChan, ZStepPerInch*-0.25, 1000);
+		while (!CheckDone(ZAxisChan));
+		
+		// Zero the axis
+		DisableAxis(ZAxisChan);
+		Zero(ZAxisChan);
+		EnableAxis(ZAxisChan);
+		
+		// Restore axis limit swttings
+		ch2->SoftLimitPos=MaxZSoftLimit*ZStepPerInch;
+		ch2->SoftLimitNeg=MinZSoftLimit*ZStepPerInch;
+			
+		printf("complete\n");
+	}
+
 	// X-Axis homing routine
 	if (Flags==1)
 	{
@@ -88,38 +120,6 @@ main()
 		// Restore axis limit swttings
 		ch0->SoftLimitPos=MaxYSoftLimit*XYStepPerInch;
 		ch0->SoftLimitNeg=MinYSoftLimit*XYStepPerInch;
-			
-		printf("complete\n");
-	}
-
-	if (Flags==1)
-	{
-		printf("Z-Axis homing routine...");
-
-		// Remove soft limits
-		DisableAxis(ZAxisChan);
-		ch2->SoftLimitPos=1e+009;
-		ch2->SoftLimitNeg=-1e+009;
-		EnableAxis(ZAxisChan);
-
-		// Jog axis slowly positive until home switch detect
-		Jog(ZAxisChan,1000);
-		while (!ReadBit(ZAxisHomeBit));
-		Jog(ZAxisChan,0);
-		while (!CheckDone(ZAxisChan));
-		
-		// Move back 0.25" off sensor
-		MoveRelAtVel(ZAxisChan, ZStepPerInch*-0.25, 1000);
-		while (!CheckDone(ZAxisChan));
-		
-		// Zero the axis
-		DisableAxis(ZAxisChan);
-		Zero(ZAxisChan);
-		EnableAxis(ZAxisChan);
-		
-		// Restore axis limit swttings
-		ch2->SoftLimitPos=MaxZSoftLimit*ZStepPerInch;
-		ch2->SoftLimitNeg=MinZSoftLimit*ZStepPerInch;
 			
 		printf("complete\n");
 	}
