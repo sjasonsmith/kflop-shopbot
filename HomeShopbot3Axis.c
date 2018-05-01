@@ -17,7 +17,7 @@
 
 #define MinXSoftLimit		0	// Set minimum X axis soft limit
 #define MinYSoftLimit		0	// Set minimum Y axis soft limit
-#define MinZSoftLimit		-6	// Set minimum Z axis soft limit
+#define MinZSoftLimit		-6.75	// Set minimum Z axis soft limit
 
 main()
 {
