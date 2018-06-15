@@ -449,7 +449,9 @@ main()
 		}
 
 		// Check virtual bit that instructs us to turn on the spindle
-		if (spindleOn != ReadBit(kVirtualBit_SpindleEnabled))
+		BOOL spindleOnNew = ReadBit(kVirtualBit_SpindleEnabled);
+		//printf("spindleOn old=%d, new=%d\n", spindleOn, spindleOnNew);
+		if (spindleOn != spindleOnNew)
 		{
 			// Turn spindle on or off
 			if (ReadBit(kVirtualBit_SpindleEnabled))
