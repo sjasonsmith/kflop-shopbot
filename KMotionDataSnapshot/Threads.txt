@@ -1,0 +1,7 @@
+C:\KFlopCustomization\ModbusMasterKflop.c
+C:\KFlopCustomization\SpindleOnCW.c
+C:\KFlopCustomization\SafeZ_SpindleOff.c
+C:\KFlopCustomization\ModbusMasterKflop.c
+C:\KFlopCustomization\ReEnable3Axis.c
+C:\KFlopCustomization\SetSpindleSpeed.c
+C:\KFlopCustomization\InitShopBot3Axis.c
