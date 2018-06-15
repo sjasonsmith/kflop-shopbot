@@ -329,7 +329,7 @@ void ModbusMaster_Monitor()
 		ModbusMaster_LastInTime=Time_sec();
 		while (pRS232RecIn != pRS232RecOut) // data in buffer
 		{
-			        
+
 			c=RS232_GetChar();
 			if (ModbusMaster_packetSize<255)
 				ModbusMaster_packetBuild[ModbusMaster_packetSize++]=c;
@@ -411,13 +411,34 @@ main()
 	SetBitDirection(kVirtualBit_SpindleEnabled, 0);
 	SetBitDirection(kVirtualBit_SpindleClockwise, 0);
 
-	BOOL spindleOn = TRUE;
+
+	
 	BOOL spindleCW = TRUE;
 	float spindleSpeed = 0.0;
 
 	starttime=Time_sec();
 	TallyCommands=ModbusMaster_TallyCommands;
 	
+	// Make sure the spindle is responding by telling it to stop twice with a delay.
+	// TODO: Query state from spindle to allow closed-loop control of its state.
+	// On initial boot this actually does not do any good, because the speed
+	// controller isn't even power yet, but this will ensure the spindle stops if
+	// someone hit the INIT button while the spindle was running.
+
+	// Make sure there is not stale state from before Init was run.
+	ClearBit(kVirtualBit_SpindleEnabled); //spindle off
+	BOOL spindleOn = FALSE;
+	printf("SPINDLE DISABLED\n");
+	MBRegisters[MBRegs_SpindleState] = 0;
+	// Call ModbusMaster_Monitor once to get communication up and running.
+	// This followed by a small delay allows the Send call to stop the
+	// running spindle.
+	ModbusMaster_Monitor();
+	Delay_sec(0.5);
+    ModbusMaster_Send(&kCommand_SetSpindleState, 1);
+	ModbusMaster_Monitor();
+	Delay_sec(0.2);
+
 	while(1)
 	{
 		#if 0
@@ -430,7 +451,7 @@ main()
 			printf("ModbusMaster_TallyCommands/s=%0.lf\n",(ModbusMaster_TallyCommands-TallyCommands)/(double)reportsecs);
 			printf("ModbusMaster_TallyConnections=%d\n",ModbusMaster_TallyConnections);
 			printf("ModbusMaster_TallyRetries=%d\n",ModbusMaster_TallyRetries);
-  
+
 			starttime=Time_sec();
 			TallyCommands=ModbusMaster_TallyCommands;
 		}
@@ -438,14 +459,18 @@ main()
 		// Echo desired spindle speed
 		if (*(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED] != spindleSpeed)
 		{
-			// TODO: Write spindle speed command, and wait for response.
 			spindleSpeed = *(float*)&persist.UserData[SPINDLECONTROL_SPEED_DESIRED];
 			*(float*)&persist.UserData[SPINDLECONTROL_SPEED_CONFIRMED] = spindleSpeed;
-			printf("Echoed %f\n", spindleSpeed);
+			printf("SPINDLE SETPOINT: %f\n", spindleSpeed);
 
 			MBRegisters[MBRegs_SpindleSpeed] = spindleSpeed;
 			ModbusMaster_Send(&kCommand_SetSpindleSpeed, 1);
 			ModbusMaster_Monitor();
+			
+			// TODO: Commands sent immediately after setting the spindle speed fail.
+			// We need to handle a response to verify the speed controller is ready
+			// for the next command.
+			Delay_sec(0.2);
 		}
 
 		// Check virtual bit that instructs us to turn on the spindle
