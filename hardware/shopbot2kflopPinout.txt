@@ -1,0 +1,69 @@
+DB-37 Pin	Description           KFlop JP7 Pin	Description
+-------------------------------------------------------------------
+1		Ground			25		GND
+2		Ground			26		GND
+3		5V			23		VDD5
+4		5V			24		VDD5
+8		Input 3 (Y-Home)	9		IO2
+9		Input 1 (Probe)		7		IO0
+10		Input 7			13		IO6
+11		Input 5 (Z-Home)	11		IO4
+13		Step 4 (A-Axis)		21		IO14/STEP3
+14		Step 2 (Y-Axis)		17		IO10/STEP1
+16		Direction 3 (Z-Axis)	20		IO13/DIR2
+17		Direction 1 (X-Axis)	16		IO9/DIR0
+26		Input 4 (E-Stop)	10		IO3
+27		Input 2 (X-Home)	8		IO1
+28		Input 8			14		IO7
+29		Input 6			12		IO5
+30		All Windings Off	JP4 10		IO19 LVTTL
+32		Step 3 (Z-Axis)		19		IO12/STEP2
+33		Step 1 (X-Axis)		15		IO8/STEP0
+34		Direction 4 (A-Axis)	22		IO15/DIR3
+35		Direction 2 (Y-Axis)	18		IO11/DIR1
+
+Left Ribbon 	Description           KFlop JP4 Pin	Description
+-------------------------------------------------------------------
+3  - Output 9					JP4 15	IO24 LVTTL
+4  - Output 10					JP4 16	IO25 LVTTL
+7  - Output 1 (Spindle 1 Relay Control)		JP4 5	IO16 LVTTL
+8  - Output 2 (Spindle 2 Relay Control)		JP4 6	IO17 LVTTL				
+9  - Output 3					JP4 7	IO18 LVTTL
+10 - Output 4 (Master Spindle Relay Control)    JP4 3	VDD33 
+11 - Output 5					JP4 11	IO20 LVTTL
+12 - Output 6					JP4 12	IO21 LVTTL
+13 - Output 7					JP4 13	IO22 LVTTL
+14 - Output 8					JP4 14	IO23 LVTTL
+
+
+RS-485 		Description           KFlop JP7 Pin	Description
+--------------------------------------------------------------------
+GND		Ground			JP7 25		GND
+RXD		Receive			JP7 5		IO44 LVTTL UART
+TXD		Transmitt		JP7 6		IO45 LVTTL UART
+VCC		Vcc			JP7 1		VDD33
+
+
+Universal CNC 4 Axis MPG - NOT PROOFED
+Wire	Color		Function		Kflop JP6	
+---------------------------------------------------------------------
+1	Red		+5V MPG			1	VDD5	+5 Volts Output
+2	Black		GND MPG			8	GND	Digital Ground
+3	Yellow		A+ signal MPG		5	IO26 	Gen Purpose LVTTL I/O
+4	Light Yellow	A- signal MPG
+5	White		B+ Signal MPG		6	IO27 	Gen Purpose LVTTL I/O
+6	Transparent	B- Signal MPG
+7	Light red	LED +
+8	Gray		LED -
+9	Brown		X Axis select		7	IO28 	Gen Purpose LVTTL I/O
+10	Orange		Y Axis select		10	IO29 	Gen Purpose LVTTL I/O
+11	Light blue	Z Axis select		11	IO30 	Gen Purpose LVTTL I/O
+12	Blue		4 Axis select
+13	Dark green	X 1 Select		12	IO31 	Gen Purpose LVTTL I/O
+14	Green		X10 Select		13	IO32 	Gen Purpose LVTTL I/O
+15	Light green	X100 Select		14	IO33 	Gen Purpose LVTTL I/O
+16	Purple		COM select		8	GND	Digital Ground
+Shield			Shield wire
+estop?						15	IO34 	Gen Purpose LVTTL I/O
+estop?						16	IO35 	Gen Purpose LVTTL I/O
+
