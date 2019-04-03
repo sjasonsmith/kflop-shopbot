@@ -190,7 +190,7 @@ EnableAxisDest(1,0);
 	SetBitDirection(16, 1);
 	ClearBit(16);
 
-	StartThread(4);
+	StartThread(1);
     return 0;
 
 }
